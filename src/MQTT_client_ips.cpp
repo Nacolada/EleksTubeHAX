@@ -35,6 +35,9 @@
 #include "Clock.h"
 #include "TFTs.h"
 #include "SetupPortal.h"
+#ifdef TUBE_OVERLAY
+#include "TubeOverlayGlue.h"
+#endif
 #ifdef MQTT_USE_TLS // For secure WiFi client
 #include <WiFiClientSecure.h>
 
@@ -105,6 +108,9 @@ bool MQTTCommandStateReceived = false;
 // MQTT topics for HA.
 #define TopicFront "main"
 #define TopicBack "back"
+#ifdef TUBE_OVERLAY
+#define TopicTubes "tubes"
+#endif
 #define Topic12hr "use_twelve_hours"
 #define TopicBlank0 "blank_zero_hours"
 #define TopicPulse "pulse_bpm"
@@ -186,6 +192,10 @@ bool LastSentBlankZeroHours = false;
 uint8_t LastSentPulseBpm = -1;
 uint8_t LastSentBreathBpm = -1;
 float LastSentRainbowSec = -1;
+#ifdef TUBE_OVERLAY
+bool LastSentTubeOverlayValid = false; // false = the overlay state has to be (re)published
+uint32_t LastSentTubeOverlayRevision = 0;
+#endif
 
 // Plain MQTT.
 int LastSentSignalLevel = 999;
@@ -407,6 +417,22 @@ void MQTTReportState(bool forceUpdateEverything)
       LastSentRainbowSec = MQTTStatusRainbowSec;
     }
   }
+#ifdef TUBE_OVERLAY
+  // Tube overlay: lock switch and number of tubes currently overridden. The revision also moves when the TTL expires.
+  if (forceUpdateEverything || !LastSentTubeOverlayValid || tubeOverlay.revision() != LastSentTubeOverlayRevision)
+  {
+    const uint32_t revision = tubeOverlay.revision();
+    JsonDocument state;
+    state["state"] = tubeOverlay.locked() ? MQTT_STATE_OFF : MQTT_STATE_ON;
+    state["active"] = tubeOverlay.activeCount();
+
+    if (MQTTPublish(concat7_into(outbuf, MQTT_ROOT_TOPIC, "/", UniqueDeviceName, "/", TopicTubes, "", ""), &state, MQTT_RETAIN_STATE_MESSAGES))
+    {
+      LastSentTubeOverlayRevision = revision;
+      LastSentTubeOverlayValid = true;
+    }
+  }
+#endif
 #ifdef WEB_SETUP_PORTAL
   extraReportState(forceUpdateEverything);
 #endif
@@ -566,6 +592,9 @@ bool MQTTStart(bool restart)
     MQTTclient.subscribe(concat7_into(outbuf, MQTT_ROOT_TOPIC, "/", UniqueDeviceName, "/", TopicBreath, "/set", ""));
     MQTTclient.subscribe(concat7_into(outbuf, MQTT_ROOT_TOPIC, "/", UniqueDeviceName, "/", TopicPulse, "/set", ""));
     MQTTclient.subscribe(concat7_into(outbuf, MQTT_ROOT_TOPIC, "/", UniqueDeviceName, "/", TopicRainbow, "/set", ""));
+#ifdef TUBE_OVERLAY
+    MQTTclient.subscribe(concat7_into(outbuf, MQTT_ROOT_TOPIC, "/", UniqueDeviceName, "/", TopicTubes, "/set", ""));
+#endif
 #ifdef WEB_SETUP_PORTAL
     extraSubscribe();
 #endif
@@ -578,6 +607,9 @@ bool MQTTStart(bool restart)
     Serial.printf("%s/%s/%s/set\n", MQTT_ROOT_TOPIC, UniqueDeviceName, TopicBreath);
     Serial.printf("%s/%s/%s/set\n", MQTT_ROOT_TOPIC, UniqueDeviceName, TopicPulse);
     Serial.printf("%s/%s/%s/set\n", MQTT_ROOT_TOPIC, UniqueDeviceName, TopicRainbow);
+#ifdef TUBE_OVERLAY
+    Serial.printf("%s/%s/%s/set\n", MQTT_ROOT_TOPIC, UniqueDeviceName, TopicTubes);
+#endif
     Serial.println(MQTT_TOPIC_HASTATUS);
 #endif // DEBUG_OUTPUT_MQTT
 #endif // MQTT_HOME_ASSISTANT
@@ -591,6 +623,9 @@ void checkIfMQTTIsConnected()
   if (!MQTTConnected)
   {
     availabilityReported = false;
+#ifdef TUBE_OVERLAY
+    LastSentTubeOverlayValid = false; // publish the overlay state again after the reconnect
+#endif
     MQTTStart(true); // Try to reconnect to MQTT broker
   }
 }
@@ -604,6 +639,19 @@ void MQTTCallback(char *topic, byte *payload, unsigned int length)
   Serial.println(topic);
   Serial.print("DEBUG: Payload length: ");
   Serial.println(length);
+#endif
+
+#if defined(MQTT_HOME_ASSISTANT) && defined(TUBE_OVERLAY)
+  // Tube overlay commands are handled first and on the raw payload: a 6-tube message is longer than the 256-byte copy below.
+  if (strcmp(topic, concat7_into(outbuf, MQTT_ROOT_TOPIC, "/", UniqueDeviceName, "/", TopicTubes, "/set", "")) == 0)
+  {
+    tube_overlay::Result result = tubeOverlay.handleMessage((const char *)payload, length, millis());
+    if (result != tube_overlay::Result::Applied && result != tube_overlay::Result::LockChanged)
+    {
+      Serial.printf("WARNING: tubes/set message not applied (result %d)\n", (int)result);
+    }
+    return;
+  }
 #endif
 
   const size_t bufferSize = 256; // Use a fixed-size character buffer for the payload (adjust size as needed)
@@ -1127,6 +1175,36 @@ bool MQTTReportDiscovery()
   delay(150);
   if (!MQTTPublish(concat7_into(outbuf, "homeassistant/switch/", UniqueDeviceName, "/", Topic12hr, "/config", "", ""), &discovery, MQTT_HOME_ASSISTANT_RETAIN_DISCOVERY_MESSAGES))
     return false;
+
+#ifdef TUBE_OVERLAY
+  // Tube overlay lock switch.
+  discovery.clear();
+  discovery["device"]["identifiers"][0] = UniqueDeviceName;
+  discovery["device"]["manufacturer"] = DEVICE_MANUFACTURER;
+  discovery["device"]["model"] = DEVICE_MODEL;
+  discovery["device"]["name"] = DeviceNameForHA;
+  discovery["device"]["sw_version"] = FIRMWARE_VERSION;
+  discovery["device"]["hw_version"] = DEVICE_HW_VERSION;
+  discovery["device"]["connections"][0][0] = "mac";
+  discovery["device"]["connections"][0][1] = WiFi.macAddress();
+  discovery["unique_id"] = concat7_into(outbuf, UniqueDeviceName, "_", TopicTubes, "", "", "", "");
+  discovery["object_id"] = concat7_into(outbuf, UniqueDeviceName, "_", TopicTubes, "", "", "", "");
+  discovery["availability_topic"] = concat7_into(outbuf, MQTT_ROOT_TOPIC, "/", UniqueDeviceName, "/", MQTT_ALIVE_TOPIC, "", "");
+  discovery["name"] = "Tube overlay";
+  discovery["icon"] = "mdi:led-strip-variant";
+  discovery["state_topic"] = concat7_into(outbuf, MQTT_ROOT_TOPIC, "/", UniqueDeviceName, "/", TopicTubes, "", "");
+  discovery["json_attributes_topic"] = concat7_into(outbuf, MQTT_ROOT_TOPIC, "/", UniqueDeviceName, "/", TopicTubes, "", "");
+  discovery["command_topic"] = concat7_into(outbuf, MQTT_ROOT_TOPIC, "/", UniqueDeviceName, "/", TopicTubes, "/set", "");
+  discovery["value_template"] = "{{ value_json.state }}";
+  discovery["state_on"] = "ON";
+  discovery["state_off"] = "OFF";
+  discovery["payload_on"] = "{\"state\":\"ON\"}";
+  discovery["payload_off"] = "{\"state\":\"OFF\"}";
+
+  delay(150);
+  if (!MQTTPublish(concat7_into(outbuf, "homeassistant/switch/", UniqueDeviceName, "/", TopicTubes, "/config", "", ""), &discovery, MQTT_HOME_ASSISTANT_RETAIN_DISCOVERY_MESSAGES))
+    return false;
+#endif // TUBE_OVERLAY
 
   // Blank Zero Hours.
   discovery.clear();
