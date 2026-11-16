@@ -1,5 +1,10 @@
 # EleksTubeHAX - An aftermarket custom firmware for the desk clock
 
+> **Fork notice: AI-assisted code.** This is a personal fork of
+> [aly-fly/EleksTubeHAX](https://github.com/aly-fly/EleksTubeHAX). Its changes are written with an
+> AI coding assistant (Claude Code) and tested on a single IPSTube clock. If you do not want
+> AI-generated code, do not use this fork: use upstream instead. Details in [FORK.md](FORK.md).
+
 ![EleksTube IPS clock](/docs/ImagesMD/EleksTube_IPS_Classic_Edition.jpg)
 
 #### This is the "Home Assistant Edition" with extendent MQTT support for Home Assistant, more info see below
