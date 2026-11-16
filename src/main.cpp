@@ -691,6 +691,9 @@ void loop()
 #endif // CAPACITIVE_TOUCH_BUTTONS
 
   backlights.loop();
+#ifdef TUBE_OVERLAY
+  tfts.loopTubeOverlay();
+#endif
   uclock.loop();
 
 #ifdef DIMMING

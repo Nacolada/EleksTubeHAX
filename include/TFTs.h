@@ -47,6 +47,10 @@ public:
       showDigit(digit);
   }
   void showDigit(uint8_t digit);
+#ifdef TUBE_OVERLAY
+  // Draws/removes the per-tube overlay text in the status band; call once per loop() pass.
+  void loopTubeOverlay();
+#endif
 
   // Controls the power to all displays
   void enableAllDisplays();
@@ -82,6 +86,12 @@ private:
 
   String patterns_str[9] = {"1", "2", "3", "4", "5", "6", "7", "8", "9"};
   void loadClockFacesNames();
+
+#ifdef TUBE_OVERLAY
+  void drawTubeOverlayText(uint8_t digit);
+  bool overlayTextDrawn[NUM_DIGITS] = {};
+  uint32_t overlayRevisionSeen = 0;
+#endif
 };
 
 extern TFTs tfts;

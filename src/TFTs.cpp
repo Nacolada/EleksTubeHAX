@@ -2,6 +2,9 @@
 #include "TFTs.h"
 #include "SetupPortal.h"
 #include "WiFi_WPS.h"
+#ifdef TUBE_OVERLAY
+#include "TubeOverlayGlue.h"
+#endif
 
 void TFTs::begin()
 {
@@ -131,6 +134,32 @@ void TFTs::showNoMqttStatus()
   print("NO MQTT!");
 }
 
+#ifdef TUBE_OVERLAY
+// True when the "NO MQTT!" message is shown on SECONDS_TENS (same condition as in setDigit()).
+static bool mqttErrorShown()
+{
+#if defined(MQTT_PLAIN_ENABLED) || defined(MQTT_HOME_ASSISTANT)
+  return !MQTTConnected
+#ifdef WEB_SETUP_PORTAL
+         && hax.mqtt_host[0] != '\0' // no broker configured -> not an error
+#endif
+      ;
+#else
+  return false;
+#endif
+}
+
+// True when an error message owns the status band of this screen: the overlay text yields to it.
+static bool statusBandHasError(uint8_t digit)
+{
+  if (digit == SECONDS_ONES && WifiState != connected)
+    return true;
+  if (digit == SECONDS_TENS && mqttErrorShown())
+    return true;
+  return false;
+}
+#endif // TUBE_OVERLAY
+
 void TFTs::enableAllDisplays()
 {
   TFTsEnabled = true;
@@ -148,6 +177,10 @@ void TFTs::enableAllDisplays()
 void TFTs::disableAllDisplays()
 {
   TFTsEnabled = false;
+#ifdef TUBE_OVERLAY
+  for (uint8_t digit = 0; digit < NUM_DIGITS; digit++)
+    overlayTextDrawn[digit] = false;
+#endif
 #ifdef HARDWARE_MARVELTUBESMINI_CLOCK
   chip_select.setDim(CALCDIMVALUE(0)); // Reg 0x02 = 0: backlight off, VCC stays on
 #else
@@ -199,9 +232,74 @@ void TFTs::setDigit(uint8_t digit, uint8_t value, show_t show)
           showNoMqttStatus();
         }
 #endif
+
+#ifdef TUBE_OVERLAY
+      // The digit redraw above wiped the status band: put the overlay text back, unless an error owns it.
+      uint8_t pos = tubeOverlayDigit(digit); // the mapping is its own inverse
+      if (tubeOverlay.textVisible(pos, millis()) && !statusBandHasError(digit))
+      {
+        drawTubeOverlayText(digit);
+        overlayTextDrawn[digit] = true;
+      }
+      else
+      {
+        overlayTextDrawn[digit] = false;
+      }
+#endif
     }
   }
 }
+
+#ifdef TUBE_OVERLAY
+void TFTs::drawTubeOverlayText(uint8_t digit)
+{
+  char text[tube_overlay::kTextMax + 1];
+  strncpy(text, tubeOverlay.tube(tubeOverlayDigit(digit)).text, sizeof(text) - 1);
+  text[sizeof(text) - 1] = '\0';
+
+  chip_select.setDigit(digit);
+  fillRect(0, TFT_HEIGHT - 27, TFT_WIDTH, 27, TFT_BLACK);
+  setTextColor(TFT_WHITE, TFT_BLACK);
+  setTextDatum(TC_DATUM);
+  size_t len = strlen(text);
+  while (len > 0 && textWidth(text, 2) > TFT_WIDTH - 4) // drop trailing characters until it fits
+    text[--len] = '\0';
+  drawString(text, TFT_WIDTH / 2, TFT_HEIGHT - 22, 2);
+  setTextDatum(TL_DATUM); // restore the default for the other drawing code
+#ifdef CS_DIRECT_GPIO
+  chip_select.update();
+#endif
+}
+
+void TFTs::loopTubeOverlay()
+{
+  if (!TFTsEnabled)
+    return;
+
+  uint32_t now = millis();
+  uint32_t revision = tubeOverlay.revision();
+  bool revisionChanged = revision != overlayRevisionSeen;
+  overlayRevisionSeen = revision;
+
+  for (uint8_t pos = 0; pos < NUM_DIGITS; pos++)
+  {
+    uint8_t digit = tubeOverlayDigit(pos);
+    bool wanted = tubeOverlay.textVisible(pos, now) && !statusBandHasError(digit);
+    if (wanted != overlayTextDrawn[digit] || (wanted && revisionChanged))
+    {
+      if (wanted)
+      {
+        drawTubeOverlayText(digit);
+        overlayTextDrawn[digit] = true;
+      }
+      else
+      {
+        setDigit(digit, digits[digit], force); // restores the image, which also clears the text
+      }
+    }
+  }
+}
+#endif // TUBE_OVERLAY
 
 /*
  * Displays the bitmap for the value to the given digit.
