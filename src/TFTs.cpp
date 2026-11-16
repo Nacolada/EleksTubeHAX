@@ -135,7 +135,8 @@ void TFTs::showNoMqttStatus()
 }
 
 #ifdef TUBE_OVERLAY
-// True when the "NO MQTT!" message is shown on SECONDS_TENS (same condition as in setDigit()).
+// True when the "NO MQTT!" message is shown on SECONDS_TENS.
+// Must mirror the condition in TFTs::setDigit(): update it whenever upstream changes that condition.
 static bool mqttErrorShown()
 {
 #if defined(MQTT_PLAIN_ENABLED) || defined(MQTT_HOME_ASSISTANT)
@@ -236,7 +237,7 @@ void TFTs::setDigit(uint8_t digit, uint8_t value, show_t show)
 #ifdef TUBE_OVERLAY
       // The digit redraw above wiped the status band: put the overlay text back, unless an error owns it.
       uint8_t pos = tubeOverlayDigit(digit); // the mapping is its own inverse
-      if (tubeOverlay.textVisible(pos, millis()) && !statusBandHasError(digit))
+      if (!overlaySuspended && tubeOverlay.textVisible(pos, millis()) && !statusBandHasError(digit))
       {
         drawTubeOverlayText(digit);
         overlayTextDrawn[digit] = true;
@@ -280,6 +281,14 @@ void TFTs::loopTubeOverlay()
   uint32_t revision = tubeOverlay.revision();
   bool revisionChanged = revision != overlayRevisionSeen;
   overlayRevisionSeen = revision;
+
+  if (overlaySuspended)
+  {
+    // The menu draws on the tubes: never touch them. The redraw on leaving the menu restores the text.
+    for (uint8_t digit = 0; digit < NUM_DIGITS; digit++)
+      overlayTextDrawn[digit] = false;
+    return;
+  }
 
   for (uint8_t pos = 0; pos < NUM_DIGITS; pos++)
   {

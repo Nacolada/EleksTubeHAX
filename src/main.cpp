@@ -692,6 +692,7 @@ void loop()
 
   backlights.loop();
 #ifdef TUBE_OVERLAY
+  tfts.setTubeOverlaySuspended(menu.getState() != Menu::idle);
   tfts.loopTubeOverlay();
 #endif
   uclock.loop();

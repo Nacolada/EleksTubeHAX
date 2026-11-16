@@ -50,6 +50,8 @@ public:
 #ifdef TUBE_OVERLAY
   // Draws/removes the per-tube overlay text in the status band; call once per loop() pass.
   void loopTubeOverlay();
+  // While suspended (menu open) the overlay text is never drawn; the menu owns the screens.
+  void setTubeOverlaySuspended(bool suspended) { overlaySuspended = suspended; }
 #endif
 
   // Controls the power to all displays
@@ -91,6 +93,7 @@ private:
   void drawTubeOverlayText(uint8_t digit);
   bool overlayTextDrawn[NUM_DIGITS] = {};
   uint32_t overlayRevisionSeen = 0;
+  bool overlaySuspended = false;
 #endif
 };
 
