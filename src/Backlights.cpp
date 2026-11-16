@@ -1,4 +1,7 @@
 #include "Backlights.h"
+#ifdef TUBE_OVERLAY
+#include "TubeOverlayGlue.h"
+#endif
 
 void Backlights::begin(StoredConfig::Config::Backlights *config_)
 {
@@ -65,8 +68,50 @@ uint8_t Backlights::getEffectiveIntensity()
   return dimming ? dimmed_intensity : config->intensity;
 }
 
+#ifdef TUBE_OVERLAY
+void Backlights::show()
+{
+  applyTubeOverlay();
+  Adafruit_NeoPixel::show();
+}
+
+// Writes straight into the pixel buffer, so the overlay is not scaled by the
+// global brightness of the running pattern. Only the 6 tube pixels are touched.
+void Backlights::applyTubeOverlay()
+{
+  if (config == NULL || tubeOverlay.activeCount() == 0)
+  {
+    return;
+  }
+  uint8_t *pixels = getPixels();
+  uint32_t now = millis();
+  uint8_t intensity = getEffectiveIntensity();
+  for (uint8_t pos = 0; pos < tube_overlay::kTubes; pos++)
+  {
+    const tube_overlay::Tube &t = tubeOverlay.tube(pos);
+    uint8_t digit = tubeOverlayDigit(pos);
+    if (!t.active || !t.has_color || digit >= numPixels())
+    {
+      continue;
+    }
+    uint8_t level = tube_overlay::effectLevel(t.effect, now, config->pulse_bpm, config->breath_per_min);
+    uint8_t *p = &pixels[digit * (wOffset == rOffset ? 3 : 4)];
+    p[rOffset] = tube_overlay::scaleChannel(t.r, t.effect, level, intensity);
+    p[gOffset] = tube_overlay::scaleChannel(t.g, t.effect, level, intensity);
+    p[bOffset] = tube_overlay::scaleChannel(t.b, t.effect, level, intensity);
+  }
+}
+#endif
+
 void Backlights::loop()
 {
+#ifdef TUBE_OVERLAY
+  if (tubeOverlay.revision() != overlay_revision)
+  {
+    overlay_revision = tubeOverlay.revision();
+    pattern_needs_init = true; // otherwise constant/dark keep the overlay colour after it ends
+  }
+#endif
   //   enum patterns { dark, test, constant, rainbow, pulse, breath, num_patterns };
   if (off || config->pattern == dark)
   {
@@ -75,6 +120,13 @@ void Backlights::loop()
       clear();
       show();
     }
+#ifdef TUBE_OVERLAY
+    else if (tubeOverlay.activeCount() > 0)
+    {
+      clear();
+      show(); // the overlay stays visible with the lighting off
+    }
+#endif
   }
   else if (config->pattern == test)
   {

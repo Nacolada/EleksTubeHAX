@@ -40,6 +40,9 @@ public:
 
   void begin(StoredConfig::Config::Backlights *config_);
   void loop();
+#ifdef TUBE_OVERLAY
+  void show(); // hides Adafruit_NeoPixel::show(): paints the per-tube overlay first
+#endif
 
   void togglePower()
   {
@@ -121,6 +124,10 @@ private:
 #endif
   bool pattern_needs_init;
   bool off;
+#ifdef TUBE_OVERLAY
+  uint32_t overlay_revision = 0;
+  void applyTubeOverlay();
+#endif
 
   // Pattern configs, get backed up.
   StoredConfig::Config::Backlights *config;

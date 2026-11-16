@@ -20,6 +20,9 @@
 #include "TFTs.h"
 #include "WiFi_WPS.h"
 #include "SetupPortal.h"
+#ifdef TUBE_OVERLAY
+#include "TubeOverlayGlue.h"
+#endif
 
 #ifdef GEOLOCATION_ENABLED
 #include "IPGeolocation_AO.h"
@@ -144,6 +147,9 @@ void HandleGesture()
 char UniqueDeviceName[32]; // Enough space for <DeviceName> + 6 hex chars + null
 
 Backlights backlights;
+#ifdef TUBE_OVERLAY
+tube_overlay::State tubeOverlay;
+#endif
 Buttons buttons;
 TFTs tfts;
 Clock uclock;
@@ -390,6 +396,9 @@ void setup()
 void loop()
 {
   uint32_t millis_at_top = millis();
+#ifdef TUBE_OVERLAY
+  tubeOverlay.tick(millis_at_top);
+#endif
 
   // Do all the maintenance work.
   WifiReconnect(); // If not connected to WiFi, attempt to reconnect
