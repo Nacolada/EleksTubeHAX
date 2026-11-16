@@ -89,7 +89,7 @@ void Backlights::applyTubeOverlay()
   for (uint8_t pos = 0; pos < tube_overlay::kTubes; pos++)
   {
     const tube_overlay::Tube &t = tubeOverlay.tube(pos);
-    uint8_t digit = tubeOverlayDigit(pos);
+    uint8_t digit = tubeOverlayLed(pos);
     if (!t.active || !t.has_color || digit >= numPixels())
     {
       continue;
