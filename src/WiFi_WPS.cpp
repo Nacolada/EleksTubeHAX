@@ -119,10 +119,12 @@ void WifiBegin()
 {
   WifiState = disconnected;
 
+  // Before WiFi.mode(): on arduino-esp32 (2.x core here) a hostname set after the station interface
+  // started is ignored until the next restart of the interface (DHCP name flips).
+  WiFi.setHostname(UniqueDeviceName);
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
   WiFi.setAutoReconnect(false); // we do our own reconnection handling!
-  WiFi.setHostname(UniqueDeviceName);
 
   if (!wifiHasSavedCredentials())
   {
