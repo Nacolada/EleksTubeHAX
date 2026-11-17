@@ -19,7 +19,7 @@ Work happens on the `nacolada` branch, based on upstream `v1.3.15`.
 |---|---|---|
 | Hostname set before `WiFi.mode()`, so the DHCP name no longer alternates | `src/WiFi_WPS.cpp` | done |
 | Root CA of the maintainer's own MQTT broker | `data/mqtt-ca-root.pem` | done, useless to anyone else |
-| One LED colour per tube, driven over MQTT | to come | planned |
+| One LED colour per tube, driven over MQTT | `src/TubeOverlay.cpp`, `src/Backlights.cpp` | done |
 | Free RGB back light colour and six ambient effects | `src/Backlights.cpp`, `src/BacklightColor.cpp`, `src/BacklightEffects.cpp` | done |
 | Show an arbitrary number or a short message, then return to the time | to come | planned |
 | Countdown / stopwatch | to come | considered |
