@@ -14,7 +14,7 @@ namespace backlight_effects
 {
   constexpr uint8_t kMaxLeds = 34;
   constexpr uint8_t kMaxBursts = 3;
-  constexpr uint32_t kChaseStepMs = 1500; // time for one LED to fade from a palette colour to the next
+  constexpr uint32_t kChaseStepMs = 500;  // time for one LED to fade from a palette colour to the next
   constexpr uint32_t kChristmasFigureMs = 20000;
   constexpr uint32_t kChristmasStepMs = 500;
   constexpr uint32_t kBurstFadeMs = 1000;
