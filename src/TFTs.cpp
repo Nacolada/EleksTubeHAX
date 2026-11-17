@@ -252,6 +252,9 @@ void TFTs::setDigit(uint8_t digit, uint8_t value, show_t show)
 }
 
 #ifdef TUBE_OVERLAY
+// Black band at the bottom of a tube: font 4 glyphs (26 px) plus margin. Taller than the 27 px error band.
+static constexpr int kOverlayBandHeight = 34;
+
 void TFTs::drawTubeOverlayText(uint8_t digit)
 {
   char text[tube_overlay::kTextMax + 1];
@@ -259,13 +262,13 @@ void TFTs::drawTubeOverlayText(uint8_t digit)
   text[sizeof(text) - 1] = '\0';
 
   chip_select.setDigit(digit);
-  fillRect(0, TFT_HEIGHT - 27, TFT_WIDTH, 27, TFT_BLACK);
+  fillRect(0, TFT_HEIGHT - kOverlayBandHeight, TFT_WIDTH, kOverlayBandHeight, TFT_BLACK);
   setTextColor(TFT_WHITE, TFT_BLACK);
   setTextDatum(TC_DATUM);
   size_t len = strlen(text);
-  while (len > 0 && textWidth(text, 2) > TFT_WIDTH - 4) // drop trailing characters until it fits
+  while (len > 0 && textWidth(text, 4) > TFT_WIDTH - 4) // drop trailing characters until it fits
     text[--len] = '\0';
-  drawString(text, TFT_WIDTH / 2, TFT_HEIGHT - 22, 2);
+  drawString(text, TFT_WIDTH / 2, TFT_HEIGHT - kOverlayBandHeight + 4, 4); // font 4 is 26 px high
   setTextDatum(TL_DATUM); // restore the default for the other drawing code
 #ifdef CS_DIRECT_GPIO
   chip_select.update();
