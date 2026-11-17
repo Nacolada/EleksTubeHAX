@@ -419,6 +419,7 @@ void loop()
       MQTTCommandPatternReceived ||
       MQTTCommandBackPatternReceived ||
       MQTTCommandBackColorPhaseReceived ||
+      MQTTCommandBackRgbReceived ||
       MQTTCommandGraphicReceived ||
       MQTTCommandMainGraphicReceived ||
       MQTTCommandUseTwelveHoursReceived ||
@@ -550,6 +551,13 @@ void loop()
     backlights.setColorPhase(MQTTCommandBackColorPhase);
   }
 
+  if (MQTTCommandBackRgbReceived)
+  {
+    MQTTCommandBackRgbReceived = false;
+
+    backlights.setFreeColor(MQTTCommandBackRgb[0], MQTTCommandBackRgb[1], MQTTCommandBackRgb[2]);
+  }
+
   if (MQTTCommandGraphicReceived)
   {
     MQTTCommandGraphicReceived = false;
@@ -607,6 +615,12 @@ void loop()
   strcpy(MQTTStatusBackPattern, backlights.getPatternStr().c_str());
   backlights.getPatternStr().toCharArray(MQTTStatusBackPattern, backlights.getPatternStr().length() + 1);
   MQTTStatusBackColorPhase = backlights.getColorPhase();
+  {
+    uint32_t color = backlights.getColor();
+    MQTTStatusBackRgb[0] = (color >> 16) & 0xFF;
+    MQTTStatusBackRgb[1] = (color >> 8) & 0xFF;
+    MQTTStatusBackRgb[2] = color & 0xFF;
+  }
   MQTTStatusGraphic = uclock.getActiveGraphicIdx();
   MQTTStatusMainGraphic = uclock.getActiveGraphicIdx();
   MQTTStatusUseTwelveHours = uclock.getTwelveHour();
@@ -630,6 +644,7 @@ void loop()
 
       Serial.print("Saving config...");
       stored_config.save();
+      backlights.saveFreeColor();
       Serial.println(" Done.");
     }
   }
@@ -720,6 +735,7 @@ void loop()
       Serial.println();
       Serial.print("Saving config! Triggered from leaving menu...");
       stored_config.save();
+      backlights.saveFreeColor();
       Serial.println(" Done.");
     }
     else

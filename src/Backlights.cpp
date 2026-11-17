@@ -1,4 +1,6 @@
 #include "Backlights.h"
+#include <Preferences.h>
+#include <string.h>
 #ifdef TUBE_OVERLAY
 #include "TubeOverlayGlue.h"
 #endif
@@ -22,6 +24,58 @@ void Backlights::begin(StoredConfig::Config::Backlights *config_)
     config->is_valid = StoredConfig::valid;
   }
   off = false;
+  loadFreeColor();
+}
+
+#define FREE_COLOR_NAMESPACE "blcolor"
+#define FREE_COLOR_KEY "c"
+
+void Backlights::loadFreeColor()
+{
+  free_color = {false, 0, 0, 0};
+  Preferences p;
+  if (p.begin(FREE_COLOR_NAMESPACE, false))
+  {
+    uint8_t blob[backlight_color::kBlobSize];
+    size_t len = p.getBytesLength(FREE_COLOR_KEY);
+    if (len == backlight_color::kBlobSize && p.getBytes(FREE_COLOR_KEY, blob, len) == len)
+    {
+      backlight_color::FreeColor loaded;
+      if (backlight_color::decode(blob, len, loaded) && loaded.active)
+      {
+        free_color = loaded;
+      }
+    }
+    p.end();
+  }
+  else
+  {
+    Serial.println("Backlights: could not open free colour storage, free colour inactive.");
+  }
+  backlight_color::encode(free_color, saved_color_blob);
+  pattern_needs_init = true;
+}
+
+// Writes only when the value differs from what was last loaded or written (flash wear).
+void Backlights::saveFreeColor()
+{
+  uint8_t blob[backlight_color::kBlobSize];
+  backlight_color::encode(free_color, blob);
+  if (memcmp(blob, saved_color_blob, sizeof(blob)) == 0)
+  {
+    return;
+  }
+  Preferences p;
+  if (!p.begin(FREE_COLOR_NAMESPACE, false))
+  {
+    Serial.println("Backlights: could not open free colour storage, free colour not saved.");
+    return;
+  }
+  if (p.putBytes(FREE_COLOR_KEY, blob, sizeof(blob)) == sizeof(blob))
+  {
+    memcpy(saved_color_blob, blob, sizeof(blob));
+  }
+  p.end();
 }
 
 // These feel like they should be generalizable into a helper function.
@@ -136,7 +190,7 @@ void Backlights::loop()
   {
     if (pattern_needs_init)
     {
-      fill(phaseToColor(config->color_phase));
+      fill(getColor());
     }
     if (dimming)
     {
@@ -166,7 +220,7 @@ void Backlights::loop()
 
 void Backlights::pulsePattern()
 {
-  fill(phaseToColor(config->color_phase));
+  fill(getColor());
 
   float pulse_length_millis = (60.0f * 1000) / config->pulse_bpm;
   float val = 1 + abs(sin(2 * M_PI * millis() / pulse_length_millis)) * 254;
@@ -185,7 +239,7 @@ void Backlights::pulsePattern()
 
 void Backlights::breathPattern()
 {
-  fill(phaseToColor(config->color_phase));
+  fill(getColor());
 
   // https://sean.voisen.org/blog/2011/10/breathing-led-with-arduino/
   // Avoid a 0 value as it shuts off the LEDs and we have to re-initialize.

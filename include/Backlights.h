@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include <math.h>
 #include "StoredConfig.h"
+#include "BacklightColor.h"
 #include <Adafruit_NeoPixel.h>
 
 class Backlights : public Adafruit_NeoPixel
@@ -80,14 +81,39 @@ public:
   float getRainbowDuration() { return config->rainbow_sec; }
 
   // Used by all constant color patterns.
+  // Setting a hue (menu buttons, legacy MQTT hue command) deactivates the free colour.
   void setColorPhase(uint16_t phase)
   {
     config->color_phase = phase % max_phase;
+    clearFreeColor();
     pattern_needs_init = true;
   }
   void adjustColorPhase(int16_t adj);
   uint16_t getColorPhase() { return config->color_phase; }
-  uint32_t getColor() { return phaseToColor(config->color_phase); }
+
+  // Free RGB colour, stored outside StoredConfig (separate Preferences blob, see BacklightColor.h).
+  void setFreeColor(uint8_t r, uint8_t g, uint8_t b)
+  {
+    free_color = {true, r, g, b};
+    pattern_needs_init = true;
+  }
+  void clearFreeColor()
+  {
+    free_color = {false, 0, 0, 0};
+    pattern_needs_init = true;
+  }
+  bool hasFreeColor() { return free_color.active; }
+  void loadFreeColor();
+  void saveFreeColor();
+  // Free colour when active, else the colour of the hue wheel.
+  uint32_t getColor()
+  {
+    if (free_color.active)
+    {
+      return (uint32_t(free_color.r) << 16) | (uint32_t(free_color.g) << 8) | uint32_t(free_color.b);
+    }
+    return phaseToColor(config->color_phase);
+  }
 
   void setIntensity(uint8_t intensity);
   void adjustIntensity(int16_t adj);
@@ -124,6 +150,8 @@ private:
 #endif
   bool pattern_needs_init;
   bool off;
+  backlight_color::FreeColor free_color = {false, 0, 0, 0};
+  uint8_t saved_color_blob[backlight_color::kBlobSize] = {0}; // last value loaded from or written to flash
 #ifdef TUBE_OVERLAY
   uint32_t overlay_revision = 0;
   void applyTubeOverlay();

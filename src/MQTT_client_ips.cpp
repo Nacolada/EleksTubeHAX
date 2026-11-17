@@ -141,6 +141,8 @@ bool MQTTCommandBackPatternReceived = false;
 
 uint16_t MQTTCommandBackColorPhase = -1;
 bool MQTTCommandBackColorPhaseReceived = false;
+uint8_t MQTTCommandBackRgb[3] = {0, 0, 0};
+bool MQTTCommandBackRgbReceived = false;
 
 uint8_t MQTTCommandGraphic = -1;
 bool MQTTCommandGraphicReceived = false;
@@ -171,6 +173,7 @@ uint8_t MQTTStatusBackBrightness = 0;
 char MQTTStatusPattern[24] = "";
 char MQTTStatusBackPattern[24] = "";
 uint16_t MQTTStatusBackColorPhase = 0;
+uint8_t MQTTStatusBackRgb[3] = {0, 0, 0};
 uint8_t MQTTStatusGraphic = 0;
 uint8_t MQTTStatusMainGraphic = 0;
 uint8_t MQTTStatusPulseBpm = 0;
@@ -185,6 +188,7 @@ int LastSentBackBrightness = -1;
 char LastSentPattern[24] = "";
 char LastSentBackPattern[24] = "";
 int LastSentBackColorPhase = -1;
+int LastSentBackRgb[3] = {-1, -1, -1};
 int LastSentGraphic = -1;
 int LastSentMainGraphic = -1;
 bool LastSentUseTwelveHours = false;
@@ -339,15 +343,16 @@ void MQTTReportState(bool forceUpdateEverything)
     }
   }
 
-  if (forceUpdateEverything || MQTTStatusBackPower != LastSentBackPowerState || MQTTStatusBackBrightness != LastSentBackBrightness || strcmp(MQTTStatusBackPattern, LastSentBackPattern) != 0 || MQTTStatusBackColorPhase != LastSentBackColorPhase || MQTTStatusPulseBpm != LastSentPulseBpm || MQTTStatusBreathBpm != LastSentBreathBpm || MQTTStatusRainbowSec != LastSentRainbowSec)
+  if (forceUpdateEverything || MQTTStatusBackPower != LastSentBackPowerState || MQTTStatusBackBrightness != LastSentBackBrightness || strcmp(MQTTStatusBackPattern, LastSentBackPattern) != 0 || MQTTStatusBackColorPhase != LastSentBackColorPhase || MQTTStatusBackRgb[0] != LastSentBackRgb[0] || MQTTStatusBackRgb[1] != LastSentBackRgb[1] || MQTTStatusBackRgb[2] != LastSentBackRgb[2] || MQTTStatusPulseBpm != LastSentPulseBpm || MQTTStatusBreathBpm != LastSentBreathBpm || MQTTStatusRainbowSec != LastSentRainbowSec)
   {
     JsonDocument state;
     state["state"] = MQTTStatusBackPower == 0 ? MQTT_STATE_OFF : MQTT_STATE_ON;
     state["brightness"] = MQTTStatusBackBrightness;
     state["effect"] = MQTTStatusBackPattern;
-    state["color_mode"] = "hs";
-    state["color"]["h"] = backlights.phaseToHue(MQTTStatusBackColorPhase);
-    state["color"]["s"] = 100.f;
+    state["color_mode"] = "rgb";
+    state["color"]["r"] = MQTTStatusBackRgb[0];
+    state["color"]["g"] = MQTTStatusBackRgb[1];
+    state["color"]["b"] = MQTTStatusBackRgb[2];
     state["pulse_bpm"] = MQTTStatusPulseBpm;
     state["beath_bpm"] = MQTTStatusBreathBpm;
     state["rainbow_sec"] = round1(MQTTStatusRainbowSec);
@@ -359,6 +364,9 @@ void MQTTReportState(bool forceUpdateEverything)
       strncpy(LastSentBackPattern, MQTTStatusBackPattern, sizeof(LastSentBackPattern) - 1);
       LastSentBackPattern[sizeof(LastSentBackPattern) - 1] = '\0';
       LastSentBackColorPhase = MQTTStatusBackColorPhase;
+      LastSentBackRgb[0] = MQTTStatusBackRgb[0];
+      LastSentBackRgb[1] = MQTTStatusBackRgb[1];
+      LastSentBackRgb[2] = MQTTStatusBackRgb[2];
     }
   }
 
@@ -805,8 +813,23 @@ void MQTTCallback(char *topic, byte *payload, unsigned int length)
         }
         if (doc["color"].is<JsonObject>())
         {
-          MQTTCommandBackColorPhase = backlights.hueToPhase(doc["color"]["h"]);
-          MQTTCommandBackColorPhaseReceived = true;
+          JsonObject color = doc["color"];
+          if (color["r"].is<int>() && color["g"].is<int>() && color["b"].is<int>())
+          {
+            int r = color["r"], g = color["g"], b = color["b"];
+            if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) // out of range: ignore the colour, keep the rest of the message
+            {
+              MQTTCommandBackRgb[0] = (uint8_t)r;
+              MQTTCommandBackRgb[1] = (uint8_t)g;
+              MQTTCommandBackRgb[2] = (uint8_t)b;
+              MQTTCommandBackRgbReceived = true;
+            }
+          }
+          else if (color["h"].is<float>())
+          {
+            MQTTCommandBackColorPhase = backlights.hueToPhase(color["h"]);
+            MQTTCommandBackColorPhaseReceived = true;
+          }
         }
       }
       else
@@ -1136,7 +1159,7 @@ bool MQTTReportDiscovery()
   discovery["command_topic"] = concat7_into(outbuf, MQTT_ROOT_TOPIC, "/", UniqueDeviceName, "/", TopicBack, "/set", "");
   discovery["brightness"] = true;
   discovery["brightness_scale"] = MQTT_BRIGHTNESS_BACK_MAX;
-  discovery["supported_color_modes"][0] = "hs";
+  discovery["supported_color_modes"][0] = "rgb";
   discovery["effect"] = true;
   for (size_t i = 0; i < backlights.num_patterns; i++)
   {
