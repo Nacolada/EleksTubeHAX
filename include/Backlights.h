@@ -17,6 +17,7 @@
 #include <math.h>
 #include "StoredConfig.h"
 #include "BacklightColor.h"
+#include "BacklightEffects.h"
 #include <Adafruit_NeoPixel.h>
 
 class Backlights : public Adafruit_NeoPixel
@@ -35,6 +36,12 @@ public:
     rainbow,
     pulse,
     breath,
+    fireplace,
+    fireworks,
+    christmas,
+    multicolor,
+    multicolor_chase,
+    multicolor_breath,
     num_patterns
   };
   const static String patterns_str[num_patterns];
@@ -151,6 +158,7 @@ private:
   bool pattern_needs_init;
   bool off;
   backlight_color::FreeColor free_color = {false, 0, 0, 0};
+  backlight_effects::Engine effects;
   uint8_t saved_color_blob[backlight_color::kBlobSize] = {0}; // last value loaded from or written to flash
 #ifdef TUBE_OVERLAY
   uint32_t overlay_revision = 0;
@@ -165,6 +173,7 @@ private:
   void rainbowPattern();
   void pulsePattern();
   void breathPattern();
+  void effectPattern(backlight_effects::Effect e);
 
   const uint32_t test_ms_delay = 250;
 };

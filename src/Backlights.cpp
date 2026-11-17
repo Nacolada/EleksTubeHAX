@@ -166,7 +166,8 @@ void Backlights::loop()
     pattern_needs_init = true; // otherwise constant/dark keep the overlay colour after it ends
   }
 #endif
-  //   enum patterns { dark, test, constant, rainbow, pulse, breath, num_patterns };
+  //   enum patterns { dark, test, constant, rainbow, pulse, breath, fireplace, fireworks,
+  //     christmas, multicolor, multicolor_chase, multicolor_breath, num_patterns };
   if (off || config->pattern == dark)
   {
     if (pattern_needs_init)
@@ -213,6 +214,30 @@ void Backlights::loop()
   else if (config->pattern == breath)
   {
     breathPattern();
+  }
+  else if (config->pattern == fireplace)
+  {
+    effectPattern(backlight_effects::Effect::Fireplace);
+  }
+  else if (config->pattern == fireworks)
+  {
+    effectPattern(backlight_effects::Effect::Fireworks);
+  }
+  else if (config->pattern == christmas)
+  {
+    effectPattern(backlight_effects::Effect::Christmas);
+  }
+  else if (config->pattern == multicolor)
+  {
+    effectPattern(backlight_effects::Effect::Multicolor);
+  }
+  else if (config->pattern == multicolor_chase)
+  {
+    effectPattern(backlight_effects::Effect::MulticolorChase);
+  }
+  else if (config->pattern == multicolor_breath)
+  {
+    effectPattern(backlight_effects::Effect::MulticolorBreath);
   }
 
   pattern_needs_init = false;
@@ -379,5 +404,39 @@ void Backlights::rainbowPattern()
   show();
 }
 
+void Backlights::effectPattern(backlight_effects::Effect e)
+{
+  if (pattern_needs_init)
+  {
+    effects.reset(millis());
+  }
+
+  backlight_effects::Rgb colors[backlight_effects::kMaxLeds];
+  uint8_t count = numPixels() < backlight_effects::kMaxLeds ? numPixels() : backlight_effects::kMaxLeds;
+  effects.render(e, millis(), config->breath_per_min, colors, count);
+  for (uint8_t i = 0; i < count; i++)
+  {
+    setPixelColor(i, colors[i].r, colors[i].g, colors[i].b);
+  }
+
+  if (dimming)
+  {
+    if (dimmed_intensity > 0)
+    {
+      setBrightness(0xFF >> max_intensity - dimmed_intensity - 1);
+    }
+    else
+    { // turn off backlight if intensity is 0
+      setBrightness(0);
+    }
+  }
+  else
+  {
+    setBrightness(0xFF >> max_intensity - config->intensity - 1);
+  }
+  show();
+}
+
 const String Backlights::patterns_str[Backlights::num_patterns] =
-    {"Dark", "Test", "Constant", "Rainbow", "Pulse", "Breath"};
+    {"Dark", "Test", "Constant", "Rainbow", "Pulse", "Breath",
+     "Fireplace", "Fireworks", "Christmas", "Multicolor", "Multicolor Chase", "Multicolor Breath"};

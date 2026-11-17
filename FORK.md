@@ -20,8 +20,29 @@ Work happens on the `nacolada` branch, based on upstream `v1.3.15`.
 | Hostname set before `WiFi.mode()`, so the DHCP name no longer alternates | `src/WiFi_WPS.cpp` | done |
 | Root CA of the maintainer's own MQTT broker | `data/mqtt-ca-root.pem` | done, useless to anyone else |
 | One LED colour per tube, driven over MQTT | to come | planned |
+| Free RGB back light colour and six ambient effects | `src/Backlights.cpp`, `src/BacklightColor.cpp`, `src/BacklightEffects.cpp` | done |
 | Show an arbitrary number or a short message, then return to the time | to come | planned |
 | Countdown / stopwatch | to come | considered |
+
+## Ambient colour and effects
+
+The back light takes a free RGB colour, on top of the hue wheel of the menu. Choosing a hue
+(menu buttons, legacy MQTT hue command) deactivates the free colour. The colour is stored in its
+own `Preferences` blob, not in `StoredConfig`: the configuration is a single binary blob, so a
+new field would shift everything after it, the stored Wi-Fi credentials included.
+
+Six patterns are appended after `Breath`, so the pattern number already stored on a clock keeps
+its meaning. They are published to Home Assistant under these names, one LED per tube:
+
+- `Fireplace`: warm flickering flames, each LED at its own random level.
+- `Fireworks`: up to three simultaneous bursts, each a white flash then a coloured fade.
+- `Christmas`: a garland that cycles through three figures every 20 s (neighbour swap, scrolling, random twinkle).
+- `Multicolor`: a fixed palette of six colours spread over the tubes.
+- `Multicolor Chase`: the same colours, shifted by one tube every 400 ms.
+- `Multicolor Breath`: the same colours, fading in and out at the breath rate.
+
+The colours are computed by a hardware-free engine (`include/BacklightEffects.h`, tested on the
+host); `Backlights` only applies the global brightness and pushes the result to the strip.
 
 ## Building the TLS firmware used here
 
