@@ -166,6 +166,7 @@ void Backlights::loop()
     pattern_needs_init = true; // otherwise constant/dark keep the overlay colour after it ends
   }
 #endif
+  effect_ran = false;
   //   enum patterns { dark, test, constant, rainbow, pulse, breath, fireplace, fireworks,
   //     christmas, multicolor, multicolor_chase, multicolor_breath, num_patterns };
   if (off || config->pattern == dark)
@@ -240,6 +241,7 @@ void Backlights::loop()
     effectPattern(backlight_effects::Effect::MulticolorBreath);
   }
 
+  effects_active = effect_ran; // a pass without an effect (off, dark, other pattern) ends the run
   pattern_needs_init = false;
 }
 
@@ -406,10 +408,14 @@ void Backlights::rainbowPattern()
 
 void Backlights::effectPattern(backlight_effects::Effect e)
 {
-  if (pattern_needs_init)
+  // Restart the engine only on entering an effect (or switching effect), not on every repaint request:
+  // an overlay update must not blank the fireworks or flatten the fireplace.
+  if (!effects_active || e != last_effect)
   {
     effects.reset(millis());
   }
+  effect_ran = true;
+  last_effect = e;
 
   backlight_effects::Rgb colors[backlight_effects::kMaxLeds];
   uint8_t count = numPixels() < backlight_effects::kMaxLeds ? numPixels() : backlight_effects::kMaxLeds;

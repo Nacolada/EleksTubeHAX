@@ -159,6 +159,9 @@ private:
   bool off;
   backlight_color::FreeColor free_color = {false, 0, 0, 0};
   backlight_effects::Engine effects;
+  bool effects_active = false; // an effect rendered on the previous pass
+  bool effect_ran = false;     // an effect rendered on the current pass
+  backlight_effects::Effect last_effect = backlight_effects::Effect::Fireplace;
   uint8_t saved_color_blob[backlight_color::kBlobSize] = {0}; // last value loaded from or written to flash
 #ifdef TUBE_OVERLAY
   uint32_t overlay_revision = 0;
