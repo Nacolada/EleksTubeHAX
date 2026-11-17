@@ -11,8 +11,8 @@ namespace backlight_effects
 
     const Rgb kMulticolor[6] = {
       {255, 0, 0},   // red
-      {255, 128, 0}, // orange
-      {255, 255, 0}, // yellow
+      {255, 60, 0},  // orange (hue ~15, well apart from yellow on the LEDs)
+      {255, 200, 0}, // yellow (hue ~47, not drifting to green)
       {0, 255, 0},   // green
       {0, 0, 255},   // blue
       {148, 0, 211}  // violet
@@ -156,11 +156,18 @@ namespace backlight_effects
       break;
     case Effect::MulticolorChase:
     {
-      // The palette advances one LED per step, towards higher indexes.
+      // The palette glides towards higher LED indexes: each LED fades linearly from its colour
+      // to the one the previous LED had, one full step (kChaseStepMs) per colour, without pause.
       uint8_t shift = (uint8_t)((now_ms / kChaseStepMs) % 6);
+      uint32_t frac = now_ms % kChaseStepMs;
       for (uint8_t i = 0; i < count; i++)
       {
-        out[i] = multicolorPalette((uint8_t)(i + 6 - shift));
+        uint8_t idx = (uint8_t)(i % 6 + 6 - shift);
+        Rgb from = multicolorPalette(idx);
+        Rgb to = multicolorPalette((uint8_t)(idx + 5));
+        out[i].r = (uint8_t)(((uint32_t)from.r * (kChaseStepMs - frac) + (uint32_t)to.r * frac) / kChaseStepMs);
+        out[i].g = (uint8_t)(((uint32_t)from.g * (kChaseStepMs - frac) + (uint32_t)to.g * frac) / kChaseStepMs);
+        out[i].b = (uint8_t)(((uint32_t)from.b * (kChaseStepMs - frac) + (uint32_t)to.b * frac) / kChaseStepMs);
       }
       break;
     }

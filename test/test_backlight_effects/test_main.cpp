@@ -63,19 +63,63 @@ void test_multicolor_fixed(void)
   }
 }
 
-void test_chase_shifts_one_tube_per_step(void)
+// Chase colour of LED i at the very start of a step: palette index (i - step) mod 6.
+static Rgb chasePure(uint8_t i, uint32_t step)
+{
+  return multicolorPalette((uint8_t)(i % 6 + 6 - step % 6));
+}
+
+static bool within1(uint8_t a, uint8_t b)
+{
+  return (a > b ? a - b : b - a) <= 1;
+}
+
+static void check_chase(uint8_t count)
 {
   Engine e(1);
-  Rgb f0[kMaxLeds], f1[kMaxLeds], f6[kMaxLeds];
-  const uint32_t t0 = 5000;
-  e.render(Effect::MulticolorChase, t0, 20, f0, 6);
-  e.render(Effect::MulticolorChase, t0 + kChaseStepMs, 20, f1, 6);
-  e.render(Effect::MulticolorChase, t0 + 6 * kChaseStepMs, 20, f6, 6);
-  for (uint8_t i = 0; i < 6; i++)
+  Rgb f[kMaxLeds];
+  // Steps 0..7 cover the wrap of the palette; a large step checks there is no overflow.
+  const uint32_t steps[] = {0, 1, 2, 5, 6, 7, UINT32_MAX / kChaseStepMs - 1};
+  for (uint32_t step : steps)
   {
-    TEST_ASSERT_TRUE(same(f1[i], f0[(i + 5) % 6]));
+    uint32_t t = step * kChaseStepMs;
+    e.render(Effect::MulticolorChase, t, 20, f, count);
+    for (uint8_t i = 0; i < count; i++)
+    {
+      Rgb a = chasePure(i, step);
+      Rgb b = chasePure(i, step + 1); // the colour the LED glides to
+      TEST_ASSERT_TRUE(same(f[i], a));
+      e.render(Effect::MulticolorChase, t + kChaseStepMs / 2, 20, f, count);
+      TEST_ASSERT_TRUE(within1(f[i].r, (a.r + b.r) / 2));
+      TEST_ASSERT_TRUE(within1(f[i].g, (a.g + b.g) / 2));
+      TEST_ASSERT_TRUE(within1(f[i].b, (a.b + b.b) / 2));
+      e.render(Effect::MulticolorChase, t + kChaseStepMs, 20, f, count);
+      TEST_ASSERT_TRUE(same(f[i], b));
+      e.render(Effect::MulticolorChase, t, 20, f, count);
+    }
   }
-  TEST_ASSERT_EQUAL_MEMORY(f0, f6, 6 * sizeof(Rgb));
+}
+
+void test_chase_cross_fades_6(void)
+{
+  check_chase(6);
+}
+
+void test_chase_cross_fades_34(void)
+{
+  check_chase(34);
+}
+
+void test_chase_never_pauses(void)
+{
+  Engine e(1);
+  Rgb a[kMaxLeds], b[kMaxLeds];
+  for (uint32_t t = 1000; t < 1000 + 2 * kChaseStepMs; t += 50)
+  {
+    e.render(Effect::MulticolorChase, t, 20, a, 6);
+    e.render(Effect::MulticolorChase, t + 50, 20, b, 6);
+    TEST_ASSERT_FALSE(same(a[0], b[0]));
+  }
 }
 
 void test_breath_keeps_hue_and_varies_level(void)
@@ -324,7 +368,9 @@ int main(int, char **)
 {
   UNITY_BEGIN();
   RUN_TEST(test_multicolor_fixed);
-  RUN_TEST(test_chase_shifts_one_tube_per_step);
+  RUN_TEST(test_chase_cross_fades_6);
+  RUN_TEST(test_chase_cross_fades_34);
+  RUN_TEST(test_chase_never_pauses);
   RUN_TEST(test_breath_keeps_hue_and_varies_level);
   RUN_TEST(test_breath_zero_bpm_is_safe);
   RUN_TEST(test_fireplace_is_warm_and_alive);

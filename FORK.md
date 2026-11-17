@@ -38,7 +38,7 @@ its meaning. They are published to Home Assistant under these names, one LED per
 - `Fireworks`: up to three simultaneous bursts, each a white flash then a coloured fade.
 - `Christmas`: a garland that cycles through three figures every 20 s (neighbour swap, scrolling, random twinkle).
 - `Multicolor`: a fixed palette of six colours spread over the tubes.
-- `Multicolor Chase`: the same colours, shifted by one tube every 400 ms.
+- `Multicolor Chase`: the same colours, gliding from tube to tube with a continuous cross-fade (1.5 s per colour).
 - `Multicolor Breath`: the same colours, fading in and out at the breath rate.
 
 The colours are computed by a hardware-free engine (`include/BacklightEffects.h`, tested on the
