@@ -20,7 +20,7 @@ namespace backlight_effects
   constexpr uint32_t kBurstFadeMs = 1000;
 
   constexpr uint32_t kBurstFlashMs = 150;       // white flash at the start of a burst
-  constexpr uint32_t kBurstMinGapMs = 500;      // gap between two bursts: min + random(range)
+  constexpr uint32_t kBurstMinGapMs = 250;      // gap between two bursts: min + random(range)
   constexpr uint32_t kBurstGapRangeMs = 1500;
   constexpr uint32_t kFireMinHoldMs = 40;       // how long a flame LED keeps its target level
   constexpr uint32_t kFireHoldRangeMs = 160;
@@ -53,6 +53,7 @@ namespace backlight_effects
     // count > kMaxLeds is clamped; count == 0 is a no-op.
     void render(Effect e, uint32_t now_ms, uint8_t breath_per_min, Rgb *out, uint8_t count);
     uint8_t activeBursts() const;
+    uint8_t burstColor(uint8_t slot) const; // colour table index of an active burst slot, 255 if none
 
   private:
     struct Burst

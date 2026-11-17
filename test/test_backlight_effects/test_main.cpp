@@ -166,6 +166,30 @@ void test_fireworks_bursts(void)
   TEST_ASSERT_TRUE(countTrue(hues, 216) >= 2);
 }
 
+void test_fireworks_three_simultaneous_distinct_colors(void)
+{
+  Engine e(1);
+  e.reset(7);
+  Rgb f[kMaxLeds];
+  bool saw_three = false;
+  for (uint32_t i = 0; i < 3000; i++)
+  {
+    e.render(Effect::Fireworks, i * 20, 20, f, 6);
+    saw_three = saw_three || e.activeBursts() == 3;
+    for (uint8_t a = 0; a < kMaxBursts; a++)
+    {
+      for (uint8_t b = a + 1; b < kMaxBursts; b++)
+      {
+        if (e.burstColor(a) != 255 && e.burstColor(b) != 255)
+        {
+          TEST_ASSERT_TRUE(e.burstColor(a) != e.burstColor(b));
+        }
+      }
+    }
+  }
+  TEST_ASSERT_TRUE(saw_three);
+}
+
 void test_christmas_figures(void)
 {
   Engine e(1);
@@ -305,6 +329,7 @@ int main(int, char **)
   RUN_TEST(test_breath_zero_bpm_is_safe);
   RUN_TEST(test_fireplace_is_warm_and_alive);
   RUN_TEST(test_fireworks_bursts);
+  RUN_TEST(test_fireworks_three_simultaneous_distinct_colors);
   RUN_TEST(test_christmas_figures);
   RUN_TEST(test_same_seed_same_sequence);
   RUN_TEST(test_led_counts);

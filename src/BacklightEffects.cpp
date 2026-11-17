@@ -122,6 +122,11 @@ namespace backlight_effects
     return n;
   }
 
+  uint8_t Engine::burstColor(uint8_t slot) const
+  {
+    return (slot < kMaxBursts && bursts_[slot].active) ? bursts_[slot].color : 255;
+  }
+
   void Engine::render(Effect e, uint32_t now_ms, uint8_t breath_per_min, Rgb *out, uint8_t count)
   {
     if (count == 0)
